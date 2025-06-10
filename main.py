@@ -3,6 +3,8 @@ import pygame, json, tkinter as tk
 def save():
     data = {
         "points": points,
+        "volume": volume,
+        "sound_volume": sound_volume,
         "upgrades": {
             "clicker": {"amount": up_clicker.amount, "price": up_clicker.price},
             "grandma": {"amount": up_grandma.amount, "price": up_grandma.price},
@@ -16,15 +18,22 @@ def save():
 def load():
     try:
         with open("save_data.json", "r") as file:
-            return json.load(file)
+            data = json.load(file)
+            data.setdefault("volume", 0.7)
+            data.setdefault("sound_volume", 0.3)
+            return data
     except FileNotFoundError:
-        return {"points": 0,
-                "upgrades": {
+        return {
+            "points": 0,
+            "volume": 0.7,
+            "sound_volume": 0.3,
+            "upgrades": {
                 "clicker": {"amount": 0, "price": 100},
                 "grandma": {"amount": 0, "price": 500},
                 "bakery": {"amount": 0, "price": 5000},
-                "factory": {"amount": 0, "price": 30000}}
-                }
+                "factory": {"amount": 0, "price": 30000},
+            },
+        }
 
 
 auto_save_time1 = pygame.time.get_ticks()
@@ -40,6 +49,8 @@ def auto_save():
 loaded_data = load()
 
 points = loaded_data["points"]
+volume = loaded_data.get("volume", 0.7)
+sound_volume = loaded_data.get("sound_volume", 0.3)
 time1 = pygame.time.get_ticks()
 shown_cps = 0
 cps1 = 0
@@ -82,7 +93,7 @@ class Cookie:
     def clicked(self):
         global points, cps1
         click_sound = pygame.mixer.Sound("sounds/click_sound.wav")
-        click_sound.set_volume(0.3)
+        click_sound.set_volume(sound_volume)
         mouse_pos = pygame.mouse.get_pos()
         cookie_rect = pygame.Rect(self.x, self.y, self.image.get_width(), self.image.get_height())
         if cookie_rect.collidepoint(mouse_pos):
@@ -141,12 +152,12 @@ class Upgrades:
     def buy_upgrade(self):
         global points
         upgrade_sound = pygame.mixer.Sound("sounds/upgrade_sound.mp3")
+        upgrade_sound.set_volume(sound_volume)
         mouse_pos = pygame.mouse.get_pos()
         upgrade_rect = pygame.Rect(self.x, self.y, self.image.get_width(), self.image.get_height())
         if upgrade_rect.collidepoint(mouse_pos):
             if points >= self.price:
                 upgrade_sound.play()
-                upgrade_sound.set_volume(0.3)
                 points -= self.price
                 self.amount += 1
                 self.price = round(self.price * 1.05)
@@ -197,7 +208,7 @@ def draw_settings(window):
 
 
 def open_settings():
-    global settings_image
+    global settings_image, volume, sound_volume
     if Mouse_pressed:
         mouse_pos = pygame.mouse.get_pos()
         rect = pygame.Rect(830, 0, settings_image.get_width(), settings_image.get_height())
@@ -205,21 +216,24 @@ def open_settings():
 
             root = tk.Tk()
             root.title("settings")
-            root.geometry("300x200+800+300")
-            root.maxsize(width=300, height=200)
-            root.minsize(width=300, height=200)
+            root.geometry("300x300+800+300")
+            root.maxsize(width=300, height=300)
+            root.minsize(width=300, height=300)
             root.configure(bg="gray")
 
 
 
 
             def delete_save():
-                global points, loaded_data
+                global points, loaded_data, volume, sound_volume
                 import os
                 if os.path.exists("save_data.json"):
                     os.remove("save_data.json")
                     loaded_data = load()
                     points = loaded_data["points"]
+                    volume = loaded_data.get("volume", 0.7)
+                    sound_volume = loaded_data.get("sound_volume", 0.3)
+                    pygame.mixer.music.set_volume(volume)
                     up_clicker.amount = loaded_data["upgrades"].get("clicker", {}).get("amount", up_clicker.price)
                     up_grandma.amount = loaded_data["upgrades"].get("grandma", {}).get("amount", up_grandma.price)
                     up_bakery.amount = loaded_data["upgrades"].get("bakery", {}).get("amount", up_bakery.price)
@@ -233,10 +247,28 @@ def open_settings():
                     save()
                 root.destroy()
 
+            def update_music_volume(val):
+                global volume
+                volume = float(val)
+
+            def update_sound_volume(val):
+                global sound_volume
+                sound_volume = float(val)
+
             def save_button():
                 save()
-
+                pygame.mixer.music.set_volume(volume)
                 root.destroy()
+
+            music_slider = tk.Scale(root, from_=0, to=1, resolution=0.1, orient="horizontal",
+                                   label="Music Volume", command=update_music_volume)
+            music_slider.set(volume)
+            music_slider.pack(pady=10)
+
+            sound_slider = tk.Scale(root, from_=0, to=1, resolution=0.1, orient="horizontal",
+                                   label="Sound Volume", command=update_sound_volume)
+            sound_slider.set(sound_volume)
+            sound_slider.pack(pady=10)
 
             save_button = tk.Button(root, text="save", command=save_button)
             save_button.pack(pady=10)
@@ -264,7 +296,7 @@ class Game:
         pygame.mixer.init()
         pygame.mixer.music.load("sounds/Jorge Hernandez - Chopsticks ♫ NO COPYRIGHT 8-bit Music.mp3")
         pygame.mixer.music.play(-1)
-        pygame.mixer.music.set_volume(0.7)
+        pygame.mixer.music.set_volume(volume)
 
 
 
